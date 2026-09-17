@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repository & Task Manager</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12 font-sans">
+
+  <!-- Top Navigation -->
+  <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-folder-open text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-wide">Task Cloud Repository</h1>
+          <p class="text-xs text-slate-400">Pengembangan Aplikasi Web</p>
+        </div>
+      </div>
+      <!-- Search Input -->
+      <div class="relative w-full sm:w-72">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <input type="text" id="searchInput" oninput="filterTugas()" placeholder="Cari judul atau matkul..." 
+          class="w-full pl-9 pr-4 py-2 bg-slate-900/90 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- Left Column: Form Input (4 cols) -->
+    <section class="lg:col-span-4">
+      <div class="bg-slate-800 border border-slate-700/80 rounded-2xl p-6 shadow-xl sticky top-24">
+        <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-cloud-arrow-up text-indigo-400"></i> Unggah Tugas Baru
+        </h2>
+
+        <form id="tugasForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Judul Tugas</label>
+            <input type="text" id="judul" required placeholder="Contoh: Tugas 3 RPL" 
+              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Mata Kuliah</label>
+            <input type="text" id="matakuliah" required placeholder="Contoh: Rekayasa Perangkat Lunak" 
+              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Tenggat Waktu (Deadline)</label>
+            <input type="date" id="deadline" required 
+              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-indigo-500 text-slate-300">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">File Berkas (PDF, Gambar, Zip)</label>
+            <input type="file" id="file_tugas" required 
+              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-400 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Deskripsi / Catatan Singkat</label>
+            <textarea id="deskripsi" rows="3" placeholder="Catatan opsional..." 
+              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-indigo-500"></textarea>
+          </div>
+
+          <button type="submit" id="submitBtn" 
+            class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-medium text-sm rounded-lg transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+            <i class="fa-solid fa-paper-plane"></i> Simpan & Upload
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Right Column: Card Grid Display (8 cols) -->
+    <section class="lg:col-span-8">
+      <!-- Status Feedback Message -->
+      <div id="statusMessage" class="hidden mb-4 p-4 rounded-xl text-sm font-medium border"></div>
+
+      <!-- Section Title & Filter Tabs -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h2 class="text-base font-semibold text-white flex items-center gap-2">
+          <i class="fa-solid fa-layer-group text-indigo-400"></i> Daftar Tugas Tersimpan
+        </h2>
+        <div class="flex bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs font-medium">
+          <button onclick="setFilter('semua')" id="btnFilterSemua" class="px-3 py-1.5 rounded-md bg-indigo-600 text-white">Semua</button>
+          <button onclick="setFilter('Belum Selesai')" id="btnFilterBelum" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white">Belum Selesai</button>
+          <button onclick="setFilter('Selesai')" id="btnFilterSelesai" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white">Selesai</button>
+        </div>
+      </div>
+
+      <!-- Cards Container -->
+      <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Skeleton Loading View -->
+        <div class="col-span-full py-12 text-center text-slate-500">
+          <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-indigo-500"></i>
+          <p class="text-sm">Memuat daftar tugas dari database...</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // 1. KREDENSIAL SUPABASE
+    // ==========================================
+    const SUPABASE_URL = 'https://hbagehkkhqxlxbifhhzj.supabase.co/rest/v1/';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhiYWdlaGtraHF4bHhiaWZoaHpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDc1NjgsImV4cCI6MjEwNTIyMzU2OH0.6HzBFIDAksJqnmjI3FC5u83pMlvarceIPHca5slcKkE';
+
+    // Inisialisasi Supabase SDK
+    const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    let allTugasData = [];
+    let activeFilter = 'semua';
+
+    // Helper untuk menampilkan notifikasi UI
+    function showNotification(message, isError = false) {
+      const msgBox = document.getElementById('statusMessage');
+      msgBox.className = `mb-4 p-4 rounded-xl text-sm font-medium border ${
+        isError ? 'bg-red-950/80 border-red-800 text-red-200' : 'bg-emerald-950/80 border-emerald-800 text-emerald-200'
+      }`;
+      msgBox.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-exclamation' : 'fa-circle-check'} mr-2"></i> ${message}`;
+      msgBox.classList.remove('hidden');
+      setTimeout(() => msgBox.classList.add('hidden'), 6000);
+    }
+
+    // ==========================================
+    // 2. FETCH & RENDER DATA
+    // ==========================================
+    async function loadTugas() {
+      const cardsGrid = document.getElementById('cardsGrid');
+
+      if (!supabaseClient) {
+        showNotification('Gagal memuat library Supabase SDK!', true);
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('tugas')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Fetch Error:', error);
+        cardsGrid.innerHTML = `
+          <div class="col-span-full bg-red-950/30 border border-red-800/50 p-6 rounded-2xl text-center text-red-400 text-sm">
+            Gagal terhubung ke database. Periksa RLS/Kredensial Supabase.<br>
+            <span class="text-xs text-red-500 mt-1 block">${error.message}</span>
+          </div>`;
+        return;
+      }
+
+      allTugasData = data || [];
+      filterTugas();
+    }
+
+    function renderCards(items) {
+      const cardsGrid = document.getElementById('cardsGrid');
+
+      if (items.length === 0) {
+        cardsGrid.innerHTML = `
+          <div class="col-span-full border border-dashed border-slate-800 rounded-2xl p-12 text-center text-slate-500">
+            <i class="fa-regular fa-folder-open text-3xl mb-3 block"></i>
+            <p class="text-sm">Tidak ada tugas ditemukan.</p>
+          </div>`;
+        return;
+      }
+
+      cardsGrid.innerHTML = '';
+      items.forEach(item => {
+        const isSelesai = item.status === 'Selesai';
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 hover:border-slate-600 transition flex flex-col justify-between shadow-lg';
+        
+        card.innerHTML = `
+          <div>
+            <div class="flex items-start justify-between gap-2 mb-3">
+              <span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-900/50 text-indigo-300 border border-indigo-700/50">
+                ${escapeHtml(item.matakuliah)}
+              </span>
+              <button onclick="toggleStatus('${item.id}', '${item.status}')" class="text-xs font-medium px-2.5 py-1 rounded-full border transition ${
+                isSelesai 
+                  ? 'bg-emerald-950/60 border-emerald-700 text-emerald-400 hover:bg-emerald-900' 
+                  : 'bg-amber-950/60 border-amber-700 text-amber-400 hover:bg-amber-900'
+              }">
+                <i class="fa-solid ${isSelesai ? 'fa-circle-check' : 'fa-clock'} mr-1"></i> ${item.status || 'Belum Selesai'}
+              </button>
+            </div>
+
+            <h3 class="font-bold text-white text-base mb-1">${escapeHtml(item.judul)}</h3>
+            <p class="text-xs text-slate-400 mb-4 line-clamp-2">${item.deskripsi ? escapeHtml(item.deskripsi) : 'Tidak ada deskripsi.'}</p>
+          </div>
+
+          <div class="pt-4 border-t border-slate-700/50 flex items-center justify-between text-xs text-slate-400">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-regular fa-calendar-check text-indigo-400"></i>
+              <span>${item.deadline}</span>
+            </div>
+            
+            <a href="${item.file_url}" target="_blank" 
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition shadow-sm">
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Buka File
+            </a>
+          </div>
+        `;
+        cardsGrid.appendChild(card);
+      });
+    }
+
+    // ==========================================
+    // 3. FITUR UPLOAD FILE & TAMBAH TUGAS
+    // ==========================================
+    document.getElementById('tugasForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Mengunggah...`;
+
+      try {
+        const judul = document.getElementById('judul').value;
+        const matakuliah = document.getElementById('matakuliah').value;
+        const deadline = document.getElementById('deadline').value;
+        const deskripsi = document.getElementById('deskripsi').value;
+        const fileInput = document.getElementById('file_tugas');
+        const file = fileInput.files[0];
+
+        // Unique File Name
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${fileExt}`;
+
+        // 1. Upload ke Storage
+        const { error: storageError } = await supabaseClient.storage
+          .from('tugas-bucket')
+          .upload(fileName, file);
+
+        if (storageError) throw new Error('Gagal Upload Storage: ' + storageError.message);
+
+        // 2. Ambil Public URL
+        const { data: urlData } = supabaseClient.storage
+          .from('tugas-bucket')
+          .getPublicUrl(fileName);
+
+        // 3. Insert Database
+        const { error: dbError } = await supabaseClient
+          .from('tugas')
+          .insert([{
+            judul,
+            matakuliah,
+            deadline,
+            deskripsi,
+            file_name: file.name,
+            file_url: urlData.publicUrl,
+            status: 'Belum Selesai'
+          }]);
+
+        if (dbError) throw new Error('Gagal Simpan DB: ' + dbError.message);
+
+        showNotification('Tugas berhasil diunggah!');
+        document.getElementById('tugasForm').reset();
+        loadTugas();
+
+      } catch (err) {
+        showNotification(err.message, true);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Simpan & Upload`;
+      }
+    });
+
+    // ==========================================
+    // 4. UBAH STATUS (Selesai / Belum Selesai)
+    // ==========================================
+    async function toggleStatus(id, currentStatus) {
+      const newStatus = currentStatus === 'Selesai' ? 'Belum Selesai' : 'Selesai';
+      
+      const { error } = await supabaseClient
+        .from('tugas')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) {
+        showNotification('Gagal mengubah status: ' + error.message, true);
+      } else {
+        loadTugas();
+      }
+    }
+
+    // Filter & Search Functions
+    function filterTugas() {
+      const searchVal = document.getElementById('searchInput').value.toLowerCase();
+      
+      const filtered = allTugasData.filter(item => {
+        const matchSearch = item.judul.toLowerCase().includes(searchVal) || item.matakuliah.toLowerCase().includes(searchVal);
+        const matchFilter = activeFilter === 'semua' || item.status === activeFilter;
+        return matchSearch && matchFilter;
+      });
+
+      renderCards(filtered);
+    }
+
+    function setFilter(filter) {
+      activeFilter = filter;
+      ['btnFilterSemua', 'btnFilterBelum', 'btnFilterSelesai'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white';
+      });
+
+      if (filter === 'semua') document.getElementById('btnFilterSemua').className = 'px-3 py-1.5 rounded-md bg-indigo-600 text-white';
+      if (filter === 'Belum Selesai') document.getElementById('btnFilterBelum').className = 'px-3 py-1.5 rounded-md bg-indigo-600 text-white';
+      if (filter === 'Selesai') document.getElementById('btnFilterSelesai').className = 'px-3 py-1.5 rounded-md bg-indigo-600 text-white';
+
+      filterTugas();
+    }
+
+    function escapeHtml(str) {
+      return str ? str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])) : '';
+    }
+
+    // Initial Load
+    loadTugas();
+  </script>
+</body>
+</html>
